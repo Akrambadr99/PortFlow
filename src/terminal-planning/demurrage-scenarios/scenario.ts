@@ -1,0 +1,4 @@
+export interface ScenarioResult{primary:number;secondary:number;blocked:boolean;explanation:string;affected:readonly string[]}
+export function evaluateScenario(delay:number){if(!Number.isInteger(delay)||delay<0)throw new Error('Delay must be a non-negative integer.');const freeHours=8,customsHold=4,billable=Math.max(0,delay+customsHold-freeHours),cost=billable*2400;return{primary:cost,secondary:billable,blocked:delay>=18,explanation:delay>=18?'Truck appointments and reefer inspections require resequencing':billable>0?'Free time exhausted; demurrage clock is active':'Delay remains inside contractual free time',affected:['VSL-AURORA','BERTH-B04',delay>12?'GATE-DAY':'REEFER-82']}}
+export function mayCommit(role:string){return role==="commercial manager"}
+export function appendDecision(history:readonly string[],role:string,result:ScenarioResult){if(!mayCommit(role))return history;return[...history,"Publish recovery scenario"+': '+result.explanation]}
