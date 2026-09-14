@@ -16,3 +16,6 @@ test('retains keyboard-visible product navigation',async({page})=>{await page.go
 test('Berth board deep workflow',async({page})=>{await page.goto('/terminal/berths/2026-09-14');await expect(page.getByRole('heading',{name:'Berth and crane planning board',exact:true})).toBeVisible();await expect(page.getByText('Berth B04',{exact:false}).first()).toBeVisible()});
 test('Berth board evidence 1',async({page})=>{await page.goto('/terminal/berths/2026-09-14');await expect(page.getByText('Vessel Aurora',{exact:false}).first()).toBeVisible()});
 test('Berth board evidence 2',async({page})=>{await page.goto('/terminal/berths/2026-09-14');await expect(page.getByText('Crane QC-7',{exact:false}).first()).toBeVisible()});
+
+
+test('Exception desk restores and recovers domain state',async({page})=>{await page.goto('/terminal/plan/2026-09-19/exceptions?shift=day&focus=VSL-AURORA');await expect(page.getByRole('heading',{name:"Terminal planning exception desk",exact:true})).toBeVisible();await page.getByLabel('Authority').selectOption("hazmat supervisor");await page.getByRole('button',{name:'Run domain bulk action'}).click();await expect(page.getByRole('status')).toContainText('1 succeeded; 1 require recovery');await expect(page.getByRole('button',{name:'Retry failed records'})).toBeVisible()});
