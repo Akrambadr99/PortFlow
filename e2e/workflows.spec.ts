@@ -1,0 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+import{expect,test}from'@playwright/test';
+test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
+test('opens the command center',async({page})=>{await page.goto('/');await expect(page.getByRole('heading',{name:"PortFlow command center"})).toBeVisible()});
+test('navigates to the connected operations workspace',async({page})=>{await page.goto('/');await page.getByRole('link',{name:'Operations'}).click();await expect(page.getByText(/LIVE WORKSPACE/)).toBeVisible()});
+test('renders derived analytics',async({page})=>{await page.goto('/analytics');await expect(page.getByRole('heading',{name:'Operational analytics'})).toBeVisible()});
+test("Berth window allocation route is operational",async({page})=>{await page.goto('/berth-window');await expect(page.getByRole('heading',{name:"Berth window allocation"})).toBeVisible();await expect(page.getByText(/revision 1/).first()).toBeVisible()})
+test("Vessel arrival clearance route is operational",async({page})=>{await page.goto('/vessel-clearance');await expect(page.getByRole('heading',{name:"Vessel arrival clearance"})).toBeVisible();await expect(page.getByText(/revision 1/).first()).toBeVisible()})
+test("Quay crane capacity route is operational",async({page})=>{await page.goto('/crane-plan');await expect(page.getByRole('heading',{name:"Quay crane capacity"})).toBeVisible();await expect(page.getByText(/revision 1/).first()).toBeVisible()})
+test("Container customs holds route is operational",async({page})=>{await page.goto('/container-hold');await expect(page.getByRole('heading',{name:"Container customs holds"})).toBeVisible();await expect(page.getByText(/revision 1/).first()).toBeVisible()})
+test("Reefer telemetry monitoring route is operational",async({page})=>{await page.goto('/reefer-monitoring');await expect(page.getByRole('heading',{name:"Reefer telemetry monitoring"})).toBeVisible();await expect(page.getByText(/revision 1/).first()).toBeVisible()})
+test("Yard stack limits route is operational",async({page})=>{await page.goto('/yard-stack');await expect(page.getByRole('heading',{name:"Yard stack limits"})).toBeVisible();await expect(page.getByText(/revision 1/).first()).toBeVisible()})
+test("Truck gate sequence route is operational",async({page})=>{await page.goto('/gate-sequence');await expect(page.getByRole('heading',{name:"Truck gate sequence"})).toBeVisible();await expect(page.getByText(/revision 1/).first()).toBeVisible()})
+test("Dangerous goods segregation route is operational",async({page})=>{await page.goto('/dangerous-goods');await expect(page.getByRole('heading',{name:"Dangerous goods segregation"})).toBeVisible();await expect(page.getByText(/revision 1/).first()).toBeVisible()})
+test('retains keyboard-visible product navigation',async({page})=>{await page.goto('/');await page.keyboard.press('Tab');await expect(page.locator(':focus')).toBeVisible()});
