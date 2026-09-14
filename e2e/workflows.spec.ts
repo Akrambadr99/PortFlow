@@ -19,3 +19,6 @@ test('Berth board evidence 2',async({page})=>{await page.goto('/terminal/berths/
 
 
 test('Exception desk restores and recovers domain state',async({page})=>{await page.goto('/terminal/plan/2026-09-19/exceptions?shift=day&focus=VSL-AURORA');await expect(page.getByRole('heading',{name:"Terminal planning exception desk",exact:true})).toBeVisible();await page.getByLabel('Authority').selectOption("hazmat supervisor");await page.getByRole('button',{name:'Run domain bulk action'}).click();await expect(page.getByRole('status')).toContainText('1 succeeded; 1 require recovery');await expect(page.getByRole('button',{name:'Retry failed records'})).toBeVisible()});
+
+
+test('Demurrage scenarios restores a feasible decision',async({page})=>{await page.goto('/terminal/vessels/VSL-AURORA/demurrage?delay=19');await expect(page.getByRole('heading',{name:"Vessel demurrage scenario comparison",exact:true})).toBeVisible();await expect(page.getByRole('region',{name:'Scenario result'})).toContainText(/Feasible|Blocked/);await expect(page.getByText("free time",{exact:false}).first()).toBeVisible()});
