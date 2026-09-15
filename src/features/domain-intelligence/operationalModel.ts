@@ -1,0 +1,5 @@
+export interface OperationalNode{id:string;label:string;capacity:number;demand:number;dependsOn:string[];effectiveFrom:string;effectiveTo:string;version:number}
+export const operationalNodes:OperationalNode[]=[{"id":"PF-410","label":"Aurora berth window","capacity":11,"demand":9,"dependsOn":[],"effectiveFrom":"2026-09-01","effectiveTo":"2026-12-31","version":2},{"id":"PF-417","label":"Orion crane plan","capacity":8,"demand":10,"dependsOn":["PF-410"],"effectiveFrom":"2026-09-01","effectiveTo":"2026-09-20","version":3},{"id":"PF-423","label":"Reefer yard block","capacity":7,"demand":12,"dependsOn":["PF-417"],"effectiveFrom":"2026-09-18","effectiveTo":"2026-12-31","version":4},{"id":"PF-428","label":"Customs release wave","capacity":10,"demand":6,"dependsOn":["PF-410"],"effectiveFrom":"2026-09-01","effectiveTo":"2026-12-31","version":5}];
+export const scenarioModes=["Tide constrained","Balanced terminal","Priority vessel"] as const;
+export const metricLabels=["Berth hours","Crane capacity","Dwell-risk units"] as const;
+export const domainCoefficient=3.2;export const secondaryWeight=16;export const riskWeight=12;
