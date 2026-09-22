@@ -14,6 +14,7 @@ export interface BerthAssignment {
   id: string
   callId: string
   assignee: string
+  assigneeId?: string | null
   sourceRevision: number
   status: 'open' | 'completed' | 'superseded' | 'cancelled'
   supersedesId?: string | undefined
@@ -45,7 +46,7 @@ export function assignBerthCall(plan: PortPlan, id: string, assignee: string, ac
   if (current?.assignee === assignee) throw new Error('This berth call is already assigned to that planner.')
   const revision = plan.revision + 1
   const assignment: BerthAssignment = { id: `BERTH-${id}-${String(revision)}`, callId: id, assignee, sourceRevision: revision,
-    status: 'open', reason, ...(current ? { supersedesId: current.id } : {}) }
+    status: 'open', reason, assigneeId: null, ...(current ? { supersedesId: current.id } : {}) }
   return { ...plan, revision, callOwners: { ...plan.callOwners, [id]: assignee },
     berthAssignments: [...(plan.berthAssignments ?? []).map(item => item.id === current?.id ?
       { ...item, status: 'superseded' as const } : item), assignment],
@@ -75,9 +76,11 @@ export function reschedulePolicy(plan: PortPlan, id: string, start: number, end:
   if (call && !call.hazardous && actor !== owner) blockers.push(`Berth planning for ${id} belongs to ${owner}.`)
   return { allowed: blockers.length === 0, blockers, queue: blockers.some(item => item.includes('Published recovery')) ? 'blocked' : call?.hazardous ? 'hazmat-review' : 'planning' }
 }
-export function rescheduleCall(plan: PortPlan, id: string, start: number, end: number, actor: string): PortPlan {
+export function rescheduleCall(plan: PortPlan, id: string, start: number, end: number, actor: string, plannerId?: string): PortPlan {
   const decision = reschedulePolicy(plan, id, start, end, actor)
   if (!decision.allowed) throw new Error(decision.blockers.join(' '))
+  const assignment = (plan.berthAssignments ?? []).find(item => item.callId === id && item.status === 'open')
+  if (assignment?.assigneeId && assignment.assigneeId !== plannerId) throw new Error('Berth call belongs to another named planner.')
   const revision = plan.revision + 1
   return { ...plan, revision, calls: plan.calls.map(item => item.id === id ? { ...item, start, end } : item),
     berthAssignments: plan.berthAssignments?.map(item => item.callId === id && item.status === 'open' ?
@@ -94,7 +97,7 @@ export function reassignCall(plan: PortPlan, id: string, owner: string, actor: s
   return { ...plan, revision, callOwners: { ...plan.callOwners, [id]: owner },
     berthAssignments: [...(plan.berthAssignments ?? []).map(item => item.callId === id && item.status === 'open' ?
       { ...item, status: 'superseded' as const } : item),
-      { id: `BERTH-${id}-${String(revision)}`, callId: id, assignee: owner, sourceRevision: revision, status: 'open', reason,
+      { id: `BERTH-${id}-${String(revision)}`, callId: id, assignee: owner, assigneeId: null, sourceRevision: revision, status: 'open', reason,
         ...((plan.berthAssignments ?? []).find(item => item.callId === id && item.status === 'open') ?
           { supersedesId: (plan.berthAssignments ?? []).find(item => item.callId === id && item.status === 'open')?.id } : {}) }],
     history: [...plan.history,
