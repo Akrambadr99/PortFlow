@@ -6,10 +6,11 @@ export interface PortPlan {
   revision: number
   calls: readonly PortCall[]
   recoveryFor: readonly string[]
-  history: readonly { revision: number; action: string; callId: string }[]
+  callOwners: Record<string, string>
+  history: readonly { revision: number; action: string; callId: string; actor?: string; reason?: string }[]
 }
 const key = 'portflow:berth-plan:v1'
-export const initialPortPlan: PortPlan = { revision: 0, calls: portCalls, recoveryFor: [], history: [] }
+export const initialPortPlan: PortPlan = { revision: 0, calls: portCalls, recoveryFor: [], callOwners: {}, history: [] }
 export function readPortPlan(storage: StoragePort): PortPlan {
   const raw = storage.getItem(key)
   if (!raw) return initialPortPlan
@@ -17,7 +18,8 @@ export function readPortPlan(storage: StoragePort): PortPlan {
   if (!value || typeof value !== 'object' || !('revision' in value) || typeof value.revision !== 'number' ||
     !('calls' in value) || !Array.isArray(value.calls) || !('history' in value) || !Array.isArray(value.history) ||
     !('recoveryFor' in value) || !Array.isArray(value.recoveryFor)) throw new Error('Invalid berth-plan record.')
-  return value as PortPlan
+  const record = value as Omit<PortPlan, 'callOwners'> & Partial<Pick<PortPlan, 'callOwners'>>
+  return { ...record, callOwners: record.callOwners ?? {} }
 }
 export function callForRoute(plan: PortPlan, routeId: string): PortCall | undefined {
   return plan.calls.find(call => call.id === routeId || (routeId === 'VSL-AURORA' && call.id === 'CALL-41'))
@@ -33,12 +35,30 @@ export function evaluateReschedule(plan: PortPlan, id: string, start: number, en
   if (plan.recoveryFor.includes(id)) conflicts.push('Published recovery depends on this berth window.')
   return { allowed: conflicts.length === 0, conflicts }
 }
-export function rescheduleCall(plan: PortPlan, id: string, start: number, end: number): PortPlan {
-  const decision = evaluateReschedule(plan, id, start, end)
-  if (!decision.allowed) throw new Error(decision.conflicts.join(' '))
+export function reschedulePolicy(plan: PortPlan, id: string, start: number, end: number, actor: string): { allowed: boolean; blockers: string[]; queue: 'planning' | 'hazmat-review' | 'blocked' } {
+  const call = plan.calls.find(item => item.id === id)
+  const blockers = [...evaluateReschedule(plan, id, start, end).conflicts]
+  const owner = plan.callOwners[id] ?? 'terminal planner'
+  if (call?.hazardous && actor !== 'hazmat supervisor') blockers.push('Hazardous cargo rescheduling requires hazmat supervisor approval.')
+  if (call && !call.hazardous && actor !== owner) blockers.push(`Berth planning for ${id} belongs to ${owner}.`)
+  return { allowed: blockers.length === 0, blockers, queue: blockers.some(item => item.includes('Published recovery')) ? 'blocked' : call?.hazardous ? 'hazmat-review' : 'planning' }
+}
+export function rescheduleCall(plan: PortPlan, id: string, start: number, end: number, actor: string): PortPlan {
+  const decision = reschedulePolicy(plan, id, start, end, actor)
+  if (!decision.allowed) throw new Error(decision.blockers.join(' '))
   const revision = plan.revision + 1
   return { ...plan, revision, calls: plan.calls.map(item => item.id === id ? { ...item, start, end } : item),
-    history: [...plan.history, { revision, action: 'berth-rescheduled', callId: id }] }
+    history: [...plan.history, { revision, action: 'berth-rescheduled', callId: id, actor }] }
+}
+export function reassignCall(plan: PortPlan, id: string, owner: string, actor: string, reason: string): PortPlan {
+  if (actor !== 'hazmat supervisor') throw new Error('Only the terminal supervisor may reassign a berth call.')
+  if (!plan.calls.some(call => call.id === id)) throw new Error('Call was not found.')
+  if (plan.recoveryFor.includes(id)) throw new Error('Published recovery protects berth ownership.')
+  if (owner !== 'terminal planner' && owner !== 'hazmat supervisor') throw new Error('New owner is not eligible.')
+  if (reason.trim().length < 12) throw new Error('Explain the berth ownership change.')
+  const revision = plan.revision + 1
+  return { ...plan, revision, callOwners: { ...plan.callOwners, [id]: owner }, history: [...plan.history,
+    { revision, action: 'berth-reassigned', callId: id, actor, reason }] }
 }
 export function appendCall(plan: PortPlan, call: PortCall): PortPlan {
   const findings = planFindings(call, plan.calls)

@@ -10,6 +10,6 @@ test('berth rescheduling recalculates delay but published recovery blocks anothe
   await page.getByLabel('Decision authority').selectOption('commercial manager')
   await page.getByRole('button', { name: 'Publish recovery scenario' }).click()
   await page.goto('/terminal/berths/2026-09-14')
-  await page.getByRole('button', { name: 'Delay CALL-43 one hour' }).click()
-  await expect(page.getByRole('status')).toContainText('Published recovery depends')
+  await expect(page.getByRole('button', { name: 'Delay CALL-43 one hour' })).toBeDisabled()
+  await expect(page.getByText('Queue: blocked')).toBeVisible()
 })

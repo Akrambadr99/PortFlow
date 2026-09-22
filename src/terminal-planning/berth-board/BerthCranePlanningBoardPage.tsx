@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { berths, cranes, planFindings } from './berthPlan'
 import type { PortCall } from './berthPlan'
-import { appendCall, cancelCall, readPortPlan, rescheduleCall, savePortPlan } from './portPlanLedger'
+import { appendCall, cancelCall, readPortPlan, reassignCall, rescheduleCall, reschedulePolicy, savePortPlan } from './portPlanLedger'
 export function BerthCranePlanningBoardPage() {
   const { date } = useParams()
   const [plan, setPlan] = useState(() => readPortPlan(window.localStorage))
@@ -12,6 +12,8 @@ export function BerthCranePlanningBoardPage() {
     start: 12, end: 18, moves: 140, hazardous: false,
   })
   const [notice, setNotice] = useState('')
+  const [actor, setActor] = useState('terminal planner')
+  const [handoffReason, setHandoffReason] = useState('')
   const findings = planFindings(candidate, calls)
   function update<K extends keyof PortCall>(key: K, value: PortCall[K]) {
     setCandidate(current => ({ ...current, [key]: value }))
@@ -27,7 +29,7 @@ export function BerthCranePlanningBoardPage() {
     catch (error) { setNotice(error instanceof Error ? error.message : 'Cancellation failed.') }
   }
   function delayCall(call: PortCall) {
-    try { setPlan(savePortPlan(window.localStorage, rescheduleCall(plan, call.id, call.start + 1, call.end + 1))); setNotice(`${call.id} rescheduled by one hour; demurrage recalculated.`) }
+    try { setPlan(savePortPlan(window.localStorage, rescheduleCall(plan, call.id, call.start + 1, call.end + 1, actor))); setNotice(`${call.id} rescheduled by one hour; demurrage recalculated.`) }
     catch (error) { setNotice(error instanceof Error ? error.message : 'Rescheduling failed.') }
   }
   return <div className="suite-page">
@@ -36,11 +38,13 @@ export function BerthCranePlanningBoardPage() {
     </div></header>
     <section className="suite-card">
       <h2>Committed calls</h2>
+      <label>Planning actor <select value={actor} onChange={event => { setActor(event.target.value) }}><option>terminal planner</option><option>hazmat supervisor</option></select></label>
+      {actor === 'hazmat supervisor' && <label>Ownership reason <input value={handoffReason} onChange={event => { setHandoffReason(event.target.value) }} /></label>}
       <table><caption>Vessel Aurora and terminal resource plan</caption>
         <thead><tr><th>Vessel</th><th>Berth</th><th>Window</th><th>Crane</th><th>Moves</th><th>Action</th></tr></thead>
         <tbody>{calls.map(call => <tr key={call.id}><th scope="row">{call.vessel}</th>
           <td>Berth {call.berth}</td><td>{call.start}:00–{call.end}:00</td><td>Crane {call.crane}</td><td>{call.moves}</td>
-          <td>{call.id === 'CALL-41' || call.id === 'CALL-42' ? 'Baseline' : <><button onClick={() => { cancel(call.id) }}>Cancel {call.id}</button><button onClick={() => { delayCall(call) }}>Delay {call.id} one hour</button></>}</td>
+          <td>{call.id === 'CALL-41' || call.id === 'CALL-42' ? 'Baseline' : <><p>Owner: {plan.callOwners[call.id] ?? 'terminal planner'} · Queue: {reschedulePolicy(plan, call.id, call.start + 1, call.end + 1, actor).queue}</p><button onClick={() => { cancel(call.id) }}>Cancel {call.id}</button><button disabled={!reschedulePolicy(plan, call.id, call.start + 1, call.end + 1, actor).allowed} onClick={() => { delayCall(call) }}>Delay {call.id} one hour</button>{actor === 'hazmat supervisor' && <button disabled={handoffReason.trim().length < 12} onClick={() => { try { setPlan(savePortPlan(window.localStorage, reassignCall(plan, call.id, 'hazmat supervisor', actor, handoffReason))); setNotice(`${call.id} reassigned.`) } catch (error) { setNotice(error instanceof Error ? error.message : 'Reassignment failed.') } }}>Take ownership</button>}</>}</td>
         </tr>)}</tbody>
       </table>
       <p>Plan revision {plan.revision} · {plan.recoveryFor.length} recovery publication(s).</p>
