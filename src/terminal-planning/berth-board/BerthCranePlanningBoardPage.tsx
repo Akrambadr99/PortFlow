@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { berths, cranes, planFindings } from './berthPlan'
 import type { PortCall } from './berthPlan'
-import { appendCall, cancelCall, readPortPlan, reassignCall, rescheduleCall, reschedulePolicy, savePortPlan } from './portPlanLedger'
+import { appendCall, berthWorkQueue, cancelCall, readPortPlan, reassignCall, rescheduleCall, reschedulePolicy, savePortPlan } from './portPlanLedger'
 export function BerthCranePlanningBoardPage() {
   const { date } = useParams()
   const [plan, setPlan] = useState(() => readPortPlan(window.localStorage))
@@ -48,6 +48,11 @@ export function BerthCranePlanningBoardPage() {
         </tr>)}</tbody>
       </table>
       <p>Plan revision {plan.revision} · {plan.recoveryFor.length} recovery publication(s).</p>
+      {(plan.berthAssignments ?? []).length > 0 && <div aria-label="Berth work queue">
+        <h3>Planner handoffs</h3>
+        {(plan.berthAssignments ?? []).map(item => <p key={item.id}>{item.callId} · {item.assignee} · {item.status} · {item.reason}</p>)}
+        <p>{berthWorkQueue(plan, actor).length} active call(s) assigned to current actor</p>
+      </div>}
     </section>
     <section className="suite-card" aria-label="Plan another vessel">
       <h2>Plan another vessel</h2>
