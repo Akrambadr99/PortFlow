@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { berths, cranes, planFindings, portCalls } from './berthPlan'
+import { berths, cranes, planFindings } from './berthPlan'
 import type { PortCall } from './berthPlan'
+import { appendCall, cancelCall, readPortPlan, savePortPlan } from './portPlanLedger'
 export function BerthCranePlanningBoardPage() {
   const { date } = useParams()
-  const [calls, setCalls] = useState<readonly PortCall[]>(portCalls)
+  const [plan, setPlan] = useState(() => readPortPlan(window.localStorage))
+  const calls = plan.calls
   const [candidate, setCandidate] = useState<PortCall>({
     id: 'CALL-43', vessel: 'Meridian', berth: 'B04', crane: 'QC-7',
     start: 12, end: 18, moves: 140, hazardous: false,
@@ -16,9 +18,13 @@ export function BerthCranePlanningBoardPage() {
   }
   function commit() {
     if (findings.length) { setNotice('Resolve resource conflicts before committing.'); return }
-    setCalls(current => [...current, candidate])
+    setPlan(savePortPlan(window.localStorage, appendCall(plan, candidate)))
     setCandidate(current => ({ ...current, id: 'CALL-' + String(Number(current.id.slice(5)) + 1) }))
     setNotice(`${candidate.vessel} plan committed.`)
+  }
+  function cancel(id: string) {
+    try { setPlan(savePortPlan(window.localStorage, cancelCall(plan, id))); setNotice(`${id} cancelled.`) }
+    catch (error) { setNotice(error instanceof Error ? error.message : 'Cancellation failed.') }
   }
   return <div className="suite-page">
     <header className="suite-title"><div><small>TERMINAL / RESOURCE PLAN</small>
@@ -27,11 +33,13 @@ export function BerthCranePlanningBoardPage() {
     <section className="suite-card">
       <h2>Committed calls</h2>
       <table><caption>Vessel Aurora and terminal resource plan</caption>
-        <thead><tr><th>Vessel</th><th>Berth</th><th>Window</th><th>Crane</th><th>Moves</th></tr></thead>
+        <thead><tr><th>Vessel</th><th>Berth</th><th>Window</th><th>Crane</th><th>Moves</th><th>Action</th></tr></thead>
         <tbody>{calls.map(call => <tr key={call.id}><th scope="row">{call.vessel}</th>
           <td>Berth {call.berth}</td><td>{call.start}:00–{call.end}:00</td><td>Crane {call.crane}</td><td>{call.moves}</td>
+          <td>{call.id === 'CALL-41' || call.id === 'CALL-42' ? 'Baseline' : <button onClick={() => { cancel(call.id) }}>Cancel {call.id}</button>}</td>
         </tr>)}</tbody>
       </table>
+      <p>Plan revision {plan.revision} · {plan.recoveryFor.length} recovery publication(s).</p>
     </section>
     <section className="suite-card" aria-label="Plan another vessel">
       <h2>Plan another vessel</h2>
