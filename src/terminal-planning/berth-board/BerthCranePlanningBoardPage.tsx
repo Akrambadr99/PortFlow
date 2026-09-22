@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { berths, cranes, planFindings } from './berthPlan'
 import type { PortCall } from './berthPlan'
-import { appendCall, cancelCall, readPortPlan, savePortPlan } from './portPlanLedger'
+import { appendCall, cancelCall, readPortPlan, rescheduleCall, savePortPlan } from './portPlanLedger'
 export function BerthCranePlanningBoardPage() {
   const { date } = useParams()
   const [plan, setPlan] = useState(() => readPortPlan(window.localStorage))
@@ -26,6 +26,10 @@ export function BerthCranePlanningBoardPage() {
     try { setPlan(savePortPlan(window.localStorage, cancelCall(plan, id))); setNotice(`${id} cancelled.`) }
     catch (error) { setNotice(error instanceof Error ? error.message : 'Cancellation failed.') }
   }
+  function delayCall(call: PortCall) {
+    try { setPlan(savePortPlan(window.localStorage, rescheduleCall(plan, call.id, call.start + 1, call.end + 1))); setNotice(`${call.id} rescheduled by one hour; demurrage recalculated.`) }
+    catch (error) { setNotice(error instanceof Error ? error.message : 'Rescheduling failed.') }
+  }
   return <div className="suite-page">
     <header className="suite-title"><div><small>TERMINAL / RESOURCE PLAN</small>
       <h1>Berth and crane planning board</h1><p>{date ?? '2026-09-14'} · Vessel, crane, and dangerous-goods constraints</p>
@@ -36,7 +40,7 @@ export function BerthCranePlanningBoardPage() {
         <thead><tr><th>Vessel</th><th>Berth</th><th>Window</th><th>Crane</th><th>Moves</th><th>Action</th></tr></thead>
         <tbody>{calls.map(call => <tr key={call.id}><th scope="row">{call.vessel}</th>
           <td>Berth {call.berth}</td><td>{call.start}:00–{call.end}:00</td><td>Crane {call.crane}</td><td>{call.moves}</td>
-          <td>{call.id === 'CALL-41' || call.id === 'CALL-42' ? 'Baseline' : <button onClick={() => { cancel(call.id) }}>Cancel {call.id}</button>}</td>
+          <td>{call.id === 'CALL-41' || call.id === 'CALL-42' ? 'Baseline' : <><button onClick={() => { cancel(call.id) }}>Cancel {call.id}</button><button onClick={() => { delayCall(call) }}>Delay {call.id} one hour</button></>}</td>
         </tr>)}</tbody>
       </table>
       <p>Plan revision {plan.revision} · {plan.recoveryFor.length} recovery publication(s).</p>

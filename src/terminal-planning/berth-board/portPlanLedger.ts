@@ -26,6 +26,20 @@ export function effectiveDelay(plan: PortPlan, routeId: string, proposedDelay: n
   const call = callForRoute(plan, routeId)
   return proposedDelay + (call ? Math.max(0, call.end - 14) : 0)
 }
+export function evaluateReschedule(plan: PortPlan, id: string, start: number, end: number): { allowed: boolean; conflicts: string[] } {
+  const call = plan.calls.find(item => item.id === id)
+  if (!call) return { allowed: false, conflicts: ['Call was not found.'] }
+  const conflicts = planFindings({ ...call, start, end }, plan.calls.filter(item => item.id !== id))
+  if (plan.recoveryFor.includes(id)) conflicts.push('Published recovery depends on this berth window.')
+  return { allowed: conflicts.length === 0, conflicts }
+}
+export function rescheduleCall(plan: PortPlan, id: string, start: number, end: number): PortPlan {
+  const decision = evaluateReschedule(plan, id, start, end)
+  if (!decision.allowed) throw new Error(decision.conflicts.join(' '))
+  const revision = plan.revision + 1
+  return { ...plan, revision, calls: plan.calls.map(item => item.id === id ? { ...item, start, end } : item),
+    history: [...plan.history, { revision, action: 'berth-rescheduled', callId: id }] }
+}
 export function appendCall(plan: PortPlan, call: PortCall): PortPlan {
   const findings = planFindings(call, plan.calls)
   if (findings.length) throw new Error(findings.join(' '))
