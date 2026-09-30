@@ -1,4 +1,4 @@
-import type { StoragePort } from '../../workspace/repository'
+import type { StoragePort, StorageReader } from '../../platform/storage-port'
 import { readStored, writeStored } from '../../workspace/storageValidation'
 import { terminalCollectionRule } from './collectionValidation'
 import { assignBerthCall, initialPortPlan, readPortPlan } from './portPlanLedger'
@@ -27,7 +27,7 @@ export function seedTerminalCollection(legacy: PortPlan = initialPortPlan): Term
       { terminalId: 'TERM-WEST', callId: 'CALL-42-W' }] },
   ], audit: [] }
 }
-export function readTerminalCollection(storage: StoragePort): TerminalCollection {
+export function readTerminalCollection(storage: StorageReader): TerminalCollection {
   return readStored(storage, key, terminalCollectionRule, () => seedTerminalCollection(readPortPlan(storage)),
     'portflow:berth-plan:v1')
 }

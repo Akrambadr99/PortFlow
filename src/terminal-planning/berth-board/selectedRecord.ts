@@ -1,5 +1,5 @@
 import { berthPlanners, berthInbox } from './berthWorkload'
-import type { StoragePort } from '../../workspace/repository'
+import type { StoragePort } from '../../platform/storage-port'
 import { bindRecord } from '../../workspace/recordStorage'
 import { readTerminalCollection, saveTerminalCollection } from './terminalCollection'
 import { readPortPlan } from './portPlanLedger'
@@ -12,7 +12,7 @@ export function openSelectedRecord(storage: StoragePort, id = 'TERM-NORTH') {
     find: (collection, target) => collection.terminals.find(item => item.id === target),
     value: record => record.plan, archived: record => record.archived,
     replace: (collection, target, raw) => {
-      const value = readPortPlan({ getItem: () => raw, setItem: () => { throw new Error('Read only decoder.') } })
+      const value = readPortPlan({ getItem: () => raw })
       const previous = collection.terminals.find(item => item.id === target)
       if (!previous) throw new Error('Terminal not found.')
       const newClaims = (value.berthAssignments ?? []).filter(item => item.status === 'open' && item.assigneeId &&

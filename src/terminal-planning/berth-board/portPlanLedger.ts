@@ -1,4 +1,4 @@
-import type { StoragePort } from '../../workspace/repository'
+import type { StoragePort, StorageReader } from '../../platform/storage-port'
 import { planFindings, portCalls } from './berthPlan'
 import type { PortCall } from './berthPlan'
 
@@ -22,7 +22,7 @@ export interface BerthAssignment {
 }
 const key = 'portflow:berth-plan:v1'
 export const initialPortPlan: PortPlan = { revision: 0, calls: portCalls, recoveryFor: [], callOwners: {}, berthAssignments: [], history: [] }
-export function readPortPlan(storage: StoragePort): PortPlan {
+export function readPortPlan(storage: StorageReader): PortPlan {
   const raw = storage.getItem(key)
   if (!raw) return initialPortPlan
   const value: unknown = JSON.parse(raw)
