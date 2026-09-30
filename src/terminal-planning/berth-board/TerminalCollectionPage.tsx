@@ -1,3 +1,6 @@
+import { recordDetailPath, recordDecisionPath } from './recordLinks'
+import { Link } from 'react-router-dom'
+import { saveCurrentCollection } from '../../workspace/recordStorage'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { berthPlanners } from './berthWorkload'
@@ -14,9 +17,9 @@ export function TerminalCollectionPage() {
   const selectedCallId = params.get('call') ?? selected?.plan.calls[0]?.id ?? ''
   function choose(id: string, callId?: string) { setParams(current => { const next = new URLSearchParams(current); next.set('terminal', id)
     if (callId) next.set('call', callId); else next.delete('call'); return next }) }
-  function persist(next: typeof collection, message: string) { setCollection(saveTerminalCollection(window.localStorage, next)); setNotice(message) }
+  function persist(next: typeof collection, message: string) { try { setCollection(saveCurrentCollection(window.localStorage, collection, next, readTerminalCollection, saveTerminalCollection)); setNotice(message); return true } catch (error) { setNotice(error instanceof Error ? error.message : 'Save failed. Your input is preserved.'); return false } }
   function run(action: () => typeof collection, success: string) {
-    try { persist(action(), success) } catch (error) { setNotice(error instanceof Error ? error.message : 'Terminal operation failed.') }
+    try { return persist(action(), success) } catch (error) { setNotice(error instanceof Error ? error.message : 'Terminal operation failed.'); return false }
   }
   return <main className="suite-page"><header className="suite-title"><div><small>PORT / BERTH RESPONSIBILITY</small>
     <h1>Terminal berth workspace</h1><p>Independent terminal boards, shared berth restrictions and hazardous-call handoffs.</p></div></header>
@@ -71,6 +74,7 @@ export function TerminalCollectionPage() {
     </>}</section>
     <section className="suite-card" aria-label="Terminal audit"><h2>Collection audit</h2><ol>{collection.audit.toReversed().slice(0, 8).map((item, index) =>
       <li key={index}>{item.action} · {item.id} · {item.related.join(', ') || 'none'}</li>)}</ol></section>
+    <nav aria-label="Selected record workflows">{selected && !selected.archived && <><Link to={recordDetailPath(selected)}>Open record details</Link>{' · '}<Link to={recordDecisionPath(selected)}>Open decision workflow</Link></>} <button onClick={() => { try { setCollection(readTerminalCollection(window.localStorage)); setNotice('Workspace refreshed; selection preserved.') } catch (error) { setNotice(error instanceof Error ? error.message : 'Refresh failed.') } }}>Refresh workspace</button></nav>
     <p role="status">{notice}</p>
   </main>
 }

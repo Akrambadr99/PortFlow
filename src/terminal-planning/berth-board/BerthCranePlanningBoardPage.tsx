@@ -1,12 +1,16 @@
+import { SelectedRecordRoute } from './SelectedRecordRoute'
+import { useRecordContext } from '../../workspace/RecordScope'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { berths, cranes, planFindings } from './berthPlan'
 import type { PortCall } from './berthPlan'
 import { appendCall, assignBerthCall, berthWorkQueue, cancelCall, readPortPlan, reassignCall, rescheduleCall, reschedulePolicy, savePortPlan } from './portPlanLedger'
 import { berthInbox, berthPlanners, bulkClaimBerths, claimBerthCall, directAssignHazmat, plannerWorkload, releaseBerthClaim } from './berthWorkload'
-export function BerthCranePlanningBoardPage() {
+function RecordContent() {
+  const { storage, guard } = useRecordContext()
+
   const { date } = useParams()
-  const [plan, setPlan] = useState(() => readPortPlan(window.localStorage))
+  const [plan, setPlan] = useState(() => readPortPlan(storage))
   const calls = plan.calls
   const [candidate, setCandidate] = useState<PortCall>({
     id: 'CALL-43', vessel: 'Meridian', berth: 'B04', crane: 'QC-7',
@@ -23,16 +27,16 @@ export function BerthCranePlanningBoardPage() {
   }
   function commit() {
     if (findings.length) { setNotice('Resolve resource conflicts before committing.'); return }
-    setPlan(savePortPlan(window.localStorage, appendCall(plan, candidate)))
+    setPlan(savePortPlan(storage, appendCall(plan, candidate)))
     setCandidate(current => ({ ...current, id: 'CALL-' + String(Number(current.id.slice(5)) + 1) }))
     setNotice(`${candidate.vessel} plan committed.`)
   }
   function cancel(id: string) {
-    try { setPlan(savePortPlan(window.localStorage, cancelCall(plan, id))); setNotice(`${id} cancelled.`) }
+    try { setPlan(savePortPlan(storage, cancelCall(plan, id))); setNotice(`${id} cancelled.`) }
     catch (error) { setNotice(error instanceof Error ? error.message : 'Cancellation failed.') }
   }
   function delayCall(call: PortCall) {
-    try { setPlan(savePortPlan(window.localStorage, rescheduleCall(plan, call.id, call.start + 1, call.end + 1, actor, plannerId))); setNotice(`${call.id} rescheduled by one hour; demurrage recalculated.`) }
+    try { setPlan(savePortPlan(storage, rescheduleCall(plan, call.id, call.start + 1, call.end + 1, actor, plannerId))); setNotice(`${call.id} rescheduled by one hour; demurrage recalculated.`) }
     catch (error) { setNotice(error instanceof Error ? error.message : 'Rescheduling failed.') }
   }
   return <div className="suite-page">
@@ -50,7 +54,7 @@ export function BerthCranePlanningBoardPage() {
         <thead><tr><th>Vessel</th><th>Berth</th><th>Window</th><th>Crane</th><th>Moves</th><th>Action</th></tr></thead>
         <tbody>{calls.map(call => <tr key={call.id}><th scope="row">{call.vessel}</th>
           <td>Berth {call.berth}</td><td>{call.start}:00–{call.end}:00</td><td>Crane {call.crane}</td><td>{call.moves}</td>
-          <td>{call.id === 'CALL-41' || call.id === 'CALL-42' ? 'Baseline' : <><p>Owner: {plan.callOwners[call.id] ?? 'terminal planner'} · Queue: {reschedulePolicy(plan, call.id, call.start + 1, call.end + 1, actor).queue}</p><button onClick={() => { cancel(call.id) }}>Cancel {call.id}</button><button disabled={!reschedulePolicy(plan, call.id, call.start + 1, call.end + 1, actor).allowed} onClick={() => { delayCall(call) }}>Delay {call.id} one hour</button>{actor === 'hazmat supervisor' && <button disabled={handoffReason.trim().length < 12} onClick={() => { try { setPlan(savePortPlan(window.localStorage, reassignCall(plan, call.id, 'hazmat supervisor', actor, handoffReason))); setNotice(`${call.id} reassigned.`) } catch (error) { setNotice(error instanceof Error ? error.message : 'Reassignment failed.') } }}>Take ownership</button>}</>}</td>
+          <td>{call.id === 'CALL-41' || call.id === 'CALL-42' ? 'Baseline' : <><p>Owner: {plan.callOwners[call.id] ?? 'terminal planner'} · Queue: {reschedulePolicy(plan, call.id, call.start + 1, call.end + 1, actor).queue}</p><button onClick={guard(() => { cancel(call.id) })}>Cancel {call.id}</button><button disabled={!reschedulePolicy(plan, call.id, call.start + 1, call.end + 1, actor).allowed} onClick={guard(() => { delayCall(call) })}>Delay {call.id} one hour</button>{actor === 'hazmat supervisor' && <button disabled={handoffReason.trim().length < 12} onClick={guard(() => { try { setPlan(savePortPlan(storage, reassignCall(plan, call.id, 'hazmat supervisor', actor, handoffReason))); setNotice(`${call.id} reassigned.`) } catch (error) { setNotice(error instanceof Error ? error.message : 'Reassignment failed.') } })}>Take ownership</button>}</>}</td>
         </tr>)}</tbody>
       </table>
       <p>Plan revision {plan.revision} · {plan.recoveryFor.length} recovery publication(s).</p>
@@ -59,33 +63,33 @@ export function BerthCranePlanningBoardPage() {
         <p>{plannerWorkload(plan, plannerId)} active call(s) for {plannerId}</p>
         {berthInbox(plan).map(item => <div key={item.assignmentId}>
           <p>{item.callId} · {item.vessel} · {item.berth} · {item.assigneeId ?? 'team queue'}</p>
-          {!item.assigneeId && <button onClick={() => { try {
-            setPlan(savePortPlan(window.localStorage, claimBerthCall(plan, item.callId, plannerId, plan.revision)))
+          {!item.assigneeId && <button onClick={guard(() => { try {
+            setPlan(savePortPlan(storage, claimBerthCall(plan, item.callId, plannerId, plan.revision)))
             setNotice(item.callId + ' claimed.')
-          } catch (error) { setNotice(error instanceof Error ? error.message : 'Claim failed.') } }}>Claim {item.callId}</button>}
-          {!item.assigneeId && item.hazardous && actor === 'hazmat supervisor' && <button onClick={() => { try {
-            setPlan(savePortPlan(window.localStorage, directAssignHazmat(plan, item.callId, plannerId, actor,
+          } catch (error) { setNotice(error instanceof Error ? error.message : 'Claim failed.') } })}>Claim {item.callId}</button>}
+          {!item.assigneeId && item.hazardous && actor === 'hazmat supervisor' && <button onClick={guard(() => { try {
+            setPlan(savePortPlan(storage, directAssignHazmat(plan, item.callId, plannerId, actor,
               handoffReason || 'Supervisor assigned qualified hazmat planning.')))
             setNotice(item.callId + ' directly assigned.')
-          } catch (error) { setNotice(error instanceof Error ? error.message : 'Assignment failed.') } }}>Directly assign {item.callId}</button>}
-          {item.assigneeId === plannerId && <button onClick={() => { try {
-            setPlan(savePortPlan(window.localStorage, releaseBerthClaim(plan, item.callId, plannerId)))
+          } catch (error) { setNotice(error instanceof Error ? error.message : 'Assignment failed.') } })}>Directly assign {item.callId}</button>}
+          {item.assigneeId === plannerId && <button onClick={guard(() => { try {
+            setPlan(savePortPlan(storage, releaseBerthClaim(plan, item.callId, plannerId)))
             setNotice(item.callId + ' returned to team queue.')
-          } catch (error) { setNotice(error instanceof Error ? error.message : 'Release failed.') } }}>Release {item.callId}</button>}
+          } catch (error) { setNotice(error instanceof Error ? error.message : 'Release failed.') } })}>Release {item.callId}</button>}
         </div>)}
         {actor === 'hazmat supervisor' && <><label>Call to queue <select value={queueCallId} onChange={event => { setQueueCallId(event.target.value) }}>
           {calls.map(call => <option key={call.id} value={call.id}>{call.id} · {call.vessel}</option>)}
-        </select></label><button onClick={() => { try {
-          setPlan(savePortPlan(window.localStorage, assignBerthCall(plan, queueCallId,
+        </select></label><button onClick={guard(() => { try {
+          setPlan(savePortPlan(storage, assignBerthCall(plan, queueCallId,
             calls.find(call => call.id === queueCallId)?.hazardous ? 'hazmat supervisor' : 'terminal planner', actor,
             handoffReason || 'Supervisor opened planner work queue.')))
           setNotice(queueCallId + ' queued for named planning.')
-        } catch (error) { setNotice(error instanceof Error ? error.message : 'Queue failed.') } }}>Queue planning assignment</button></>}
-        <button onClick={() => {
+        } catch (error) { setNotice(error instanceof Error ? error.message : 'Queue failed.') } })}>Queue planning assignment</button></>}
+        <button onClick={guard(() => {
           const result = bulkClaimBerths(plan, berthInbox(plan).filter(item => !item.assigneeId).map(item => item.callId), plannerId)
-          setPlan(savePortPlan(window.localStorage, result.plan))
+          setPlan(savePortPlan(storage, result.plan))
           setNotice(`${String(result.applied.length)} claimed; ${String(result.skipped.length)} skipped; ${String(result.failed.length)} failed.`)
-        }}>Claim eligible calls</button>
+        })}>Claim eligible calls</button>
       </section>
       {(plan.berthAssignments ?? []).length > 0 && <div aria-label="Berth work queue">
         <h3>Planner handoffs</h3>
@@ -106,8 +110,10 @@ export function BerthCranePlanningBoardPage() {
       <label><input type="checkbox" checked={candidate.hazardous} onChange={event => { update('hazardous', event.target.checked); }} /> Dangerous goods</label>
       <h3>Plan findings</h3>
       {findings.length ? <ul>{findings.map(item => <li key={item}>{item}</li>)}</ul> : <p>No resource conflicts.</p>}
-      <button disabled={findings.length > 0 || !candidate.vessel.trim()} onClick={commit}>Commit call</button>
+      <button disabled={findings.length > 0 || !candidate.vessel.trim()} onClick={guard(commit)}>Commit call</button>
       <p role="status">{notice}</p>
     </section>
   </div>
 }
+
+export function BerthCranePlanningBoardPage() { return <SelectedRecordRoute><RecordContent /></SelectedRecordRoute> }
