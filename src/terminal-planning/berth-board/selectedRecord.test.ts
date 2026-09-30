@@ -15,6 +15,15 @@ class MemoryStorage implements StoragePort {
 const edit: (state: ReturnType<typeof readPortPlan>) => ReturnType<typeof readPortPlan> = state => assignBerthCall(state, state.calls[0]?.id ?? '', 'hazmat supervisor', 'hazmat supervisor', 'Qualified hazardous cargo review requested.')
 const key = 'portflow:berth-plan:v1'
 describe('selected terminal persistence', () => {
+  it('preserves the primary migration source when a secondary record opens first', () => {
+    const storage = new MemoryStorage()
+    const before = readTerminalCollection(storage)
+    const peer = before.terminals[1]
+    if (!peer) throw new Error('Secondary fixture missing')
+    const bound = openSelectedRecord(storage, peer.id)
+    expect(readTerminalCollection(bound)).toEqual(before)
+    expect(storage.data.size).toBe(0)
+  })
   it('enforces cross-terminal planner capacity when claiming from a detail page', () => {
     const storage = new MemoryStorage()
     let collection = readTerminalCollection(storage)

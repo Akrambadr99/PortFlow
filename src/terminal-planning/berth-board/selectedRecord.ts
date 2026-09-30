@@ -7,6 +7,7 @@ import { readPortPlan } from './portPlanLedger'
 export function openSelectedRecord(storage: StoragePort, id = 'TERM-NORTH') {
   return bindRecord(storage, id, {
     key: 'portflow:berth-plan:v1',
+    collectionKey: 'portflow:terminal-collection:v1',
     read: readTerminalCollection, save: saveTerminalCollection,
     find: (collection, target) => collection.terminals.find(item => item.id === target),
     value: record => record.plan, archived: record => record.archived,
