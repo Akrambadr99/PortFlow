@@ -99,7 +99,7 @@ describe('selected terminal persistence', () => {
     const storage = new MemoryStorage(), bound = openSelectedRecord(storage)
     const changed = edit(readPortPlan(bound))
     storage.fail = true
-    expect(() => savePortPlan(bound, changed)).toThrow('Storage full')
+    expect(() => savePortPlan(bound, changed)).toThrow('Browser storage rejected the save')
     storage.fail = false
     savePortPlan(bound, changed)
     expect(readPortPlan(openSelectedRecord(storage))).toEqual(changed)

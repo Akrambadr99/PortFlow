@@ -1,4 +1,6 @@
 import type { StoragePort } from '../../workspace/repository'
+import { readStored, writeStored } from '../../workspace/storageValidation'
+import { terminalCollectionRule } from './collectionValidation'
 import { assignBerthCall, initialPortPlan, readPortPlan } from './portPlanLedger'
 import type { PortPlan } from './portPlanLedger'
 import { berthInbox, berthPlanners, claimBerthCall, directAssignHazmat } from './berthWorkload'
@@ -26,15 +28,12 @@ export function seedTerminalCollection(legacy: PortPlan = initialPortPlan): Term
   ], audit: [] }
 }
 export function readTerminalCollection(storage: StoragePort): TerminalCollection {
-  const raw = storage.getItem(key)
-  if (!raw) return seedTerminalCollection(readPortPlan(storage))
-  const value: unknown = JSON.parse(raw)
-  if (!value || typeof value !== 'object' || !('terminals' in value) || !Array.isArray(value.terminals) ||
-    !('restrictions' in value) || !Array.isArray(value.restrictions) || !('audit' in value) || !Array.isArray(value.audit))
-    throw new Error('Invalid terminal collection.')
-  return value as TerminalCollection
+  return readStored(storage, key, terminalCollectionRule, () => seedTerminalCollection(readPortPlan(storage)),
+    'portflow:berth-plan:v1')
 }
-export function saveTerminalCollection(storage: StoragePort, value: TerminalCollection): TerminalCollection { storage.setItem(key, JSON.stringify(value)); return value }
+export function saveTerminalCollection(storage: StoragePort, value: TerminalCollection): TerminalCollection {
+  return writeStored(storage, key, terminalCollectionRule, value)
+}
 export function terminalById(value: TerminalCollection, id: string): TerminalRecord {
   const record = value.terminals.find(item => item.id === id)
   if (!record) throw new Error(`Terminal ${id} was not found.`)
